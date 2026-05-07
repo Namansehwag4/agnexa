@@ -1,0 +1,468 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  COD
+  REFUNDED
+}
+
+enum ServiceType {
+  INSTALLATION
+  REFILL
+  SAFETY_AUDIT
+  AMC
+  INSPECTION
+}
+
+enum RequestStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  WON
+  LOST
+  CLOSED
+}
+
+enum AuditStatus {
+  DRAFT
+  COMPLETED
+  EXPORTED
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum ContractStatus {
+  TRIAL
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  CANCELLED
+}
+
+enum AssetHealth {
+  HEALTHY
+  ATTENTION
+  EXPIRED
+  SERVICE_DUE
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  IN_APP
+}
+
+enum NotificationType {
+  EXPIRY
+  REFILL
+  AMC_RENEWAL
+  INSPECTION
+  EMERGENCY
+  SYSTEM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  passwordHash  String?
+  role          Role      @default(CUSTOMER)
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  reviews       Review[]
+  wishlist      WishlistItem[]
+  auditReports  AuditReport[]
+  amcContracts  AmcContract[]
+  qrAssets      FireAsset[]
+  emergencyAlerts EmergencyAlert[]
+  notifications Notification[]
+  chatSessions  AiChatSession[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String
+  image       String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  sku            String          @unique
+  shortDesc      String
+  description    String
+  price          Decimal         @db.Decimal(10, 2)
+  mrp            Decimal?        @db.Decimal(10, 2)
+  gstRate        Int             @default(18)
+  stock          Int             @default(0)
+  minBulkQty     Int             @default(10)
+  bulkPrice      Decimal?        @db.Decimal(10, 2)
+  brochureUrl    String?
+  certifications String[]
+  specifications Json
+  technicalData  Json
+  images         ProductImage[]
+  categoryId     String
+  category       Category        @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  reviews        Review[]
+  wishlist       WishlistItem[]
+  recentlyViewed RecentlyViewed[]
+  qrAssets       FireAsset[]
+  isFeatured     Boolean         @default(false)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([categoryId, isActive])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  url       String
+  alt       String
+  sortOrder Int     @default(0)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String
+  percentOff  Int?
+  amountOff   Decimal? @db.Decimal(10, 2)
+  minSubtotal Decimal? @db.Decimal(10, 2)
+  startsAt    DateTime @default(now())
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+}
+
+model Order {
+  id                 String        @id @default(cuid())
+  orderNumber        String        @unique
+  userId             String?
+  user               User?         @relation(fields: [userId], references: [id])
+  customerName       String
+  customerEmail      String
+  customerPhone      String
+  shippingAddress    Json
+  billingAddress     Json
+  subtotal           Decimal       @db.Decimal(10, 2)
+  gstTotal           Decimal       @db.Decimal(10, 2)
+  discountTotal      Decimal       @default(0) @db.Decimal(10, 2)
+  shippingTotal      Decimal       @default(0) @db.Decimal(10, 2)
+  grandTotal         Decimal       @db.Decimal(10, 2)
+  status             OrderStatus   @default(PENDING)
+  paymentStatus      PaymentStatus @default(PENDING)
+  paymentMode        String
+  razorpayOrderId    String?
+  razorpayPaymentId  String?
+  invoiceNumber      String?
+  invoiceUrl         String?
+  items              OrderItem[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  name      String
+  sku       String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  gstRate   Int
+}
+
+model QuoteRequest {
+  id          String        @id @default(cuid())
+  company    String?
+  name        String
+  email       String
+  phone       String
+  city        String
+  gstin       String?
+  requirements Json
+  status      RequestStatus @default(NEW)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ServiceRequest {
+  id          String        @id @default(cuid())
+  type        ServiceType
+  name        String
+  email       String
+  phone       String
+  siteAddress String
+  preferredAt DateTime?
+  details     String
+  status      RequestStatus @default(NEW)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  excerpt     String
+  content     String
+  coverImage  String?
+  tags        String[]
+  published   Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  sessionId String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now())
+
+  @@unique([sessionId, productId])
+}
+
+model AuditReport {
+  id              String      @id @default(cuid())
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id])
+  buildingType    String
+  areaSqFt        Int
+  floors          Int
+  occupancyCount  Int
+  electricalLoad  String
+  hasKitchen      Boolean
+  hasIndustrialEquipment Boolean
+  inputs          Json
+  riskScore       Int
+  riskLevel       RiskLevel
+  recommendations Json
+  compliance      Json
+  suggestedProducts Json
+  reportUrl       String?
+  status          AuditStatus @default(COMPLETED)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model AmcPlan {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  monthlyPrice Decimal @db.Decimal(10, 2)
+  yearlyPrice  Decimal @db.Decimal(10, 2)
+  features    String[]
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  contracts   AmcContract[]
+}
+
+model AmcContract {
+  id              String         @id @default(cuid())
+  contractNumber  String         @unique
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id])
+  planId          String
+  plan            AmcPlan        @relation(fields: [planId], references: [id])
+  siteName        String
+  siteAddress     String
+  billingCycle    String
+  status          ContractStatus @default(ACTIVE)
+  startsAt        DateTime
+  renewsAt        DateTime
+  autoRenew       Boolean        @default(true)
+  inspections     Inspection[]
+  serviceLogs     MaintenanceLog[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model FireAsset {
+  id              String       @id @default(cuid())
+  assetTag        String       @unique
+  qrCodeDataUrl   String?
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  productId       String?
+  product         Product?     @relation(fields: [productId], references: [id])
+  location        String
+  building        String?
+  floor           String?
+  installedAt     DateTime
+  lastInspection  DateTime?
+  nextInspection  DateTime?
+  refillDueAt     DateTime?
+  expiresAt       DateTime?
+  health          AssetHealth  @default(HEALTHY)
+  logs            MaintenanceLog[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Inspection {
+  id            String       @id @default(cuid())
+  contractId    String?
+  contract      AmcContract? @relation(fields: [contractId], references: [id])
+  scheduledAt   DateTime
+  technician    String?
+  status        RequestStatus @default(NEW)
+  notes         String?
+  createdAt     DateTime     @default(now())
+}
+
+model MaintenanceLog {
+  id          String       @id @default(cuid())
+  assetId     String?
+  asset       FireAsset?   @relation(fields: [assetId], references: [id])
+  contractId  String?
+  contract    AmcContract? @relation(fields: [contractId], references: [id])
+  action      String
+  notes       String?
+  performedBy String?
+  performedAt DateTime     @default(now())
+}
+
+model EmergencyAlert {
+  id          String        @id @default(cuid())
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
+  name        String
+  phone       String
+  location    Json
+  building    String?
+  message     String
+  status      RequestStatus @default(NEW)
+  createdAt   DateTime      @default(now())
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String?
+  user      User?               @relation(fields: [userId], references: [id])
+  type      NotificationType
+  channel   NotificationChannel
+  title     String
+  message   String
+  readAt    DateTime?
+  scheduledFor DateTime?
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+}
+
+model AiChatSession {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  title     String?
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
