@@ -80,7 +80,9 @@ export function AiAuditWizard() {
                 <h1 className="mt-2 text-4xl font-black">Risk score: {report.riskScore}/100</h1>
                 <p className="mt-3 text-slate-600">Risk level: <span className="font-black text-ember">{report.riskLevel}</span></p>
               </div>
-              <Button><Download className="size-4" /> Download PDF</Button>
+              <Button onClick={() => window.open(`/api/audit/${report.id || "draft"}/pdf`, "_blank")}>
+                <Download className="size-4" /> Download PDF
+              </Button>
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {report.cards.map((card: any) => (

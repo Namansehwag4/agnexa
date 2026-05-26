@@ -49,16 +49,16 @@ async function ProductList({ searchParams }: { searchParams?: Promise<{ category
         <aside className="h-fit rounded-3xl border border-line bg-white p-5 shadow-soft">
           <h2 className="flex items-center gap-2 font-black"><SlidersHorizontal className="size-4 text-ember" /> Filters</h2>
           <div className="mt-4 grid gap-2 text-sm">
-            <a href="/products" className={`rounded-xl px-3 py-2 font-semibold ${!category ? "bg-red-50 text-ember" : "text-slate-600 hover:bg-slate-50"}`}>All products</a>
+            <Link href="/products" className={`rounded-xl px-3 py-2 font-semibold ${!category ? "bg-red-50 text-ember" : "text-slate-600 hover:bg-slate-50"}`}>All products</Link>
             {categories.slice(0, 12).map((item) => {
               const slug = item.toLowerCase().replaceAll(" ", "-");
-              return <a key={item} href={`/products?category=${slug}`} className={`rounded-xl px-3 py-2 font-semibold ${category === slug ? "bg-red-50 text-ember" : "text-slate-600 hover:bg-slate-50"}`}>{item}</a>;
+              return <Link key={item} href={`/products?category=${slug}`} className={`rounded-xl px-3 py-2 font-semibold ${category === slug ? "bg-red-50 text-ember" : "text-slate-600 hover:bg-slate-50"}`}>{item}</Link>;
             })}
           </div>
           <div className="mt-6 rounded-2xl bg-slate-50 p-4">
             <p className="text-sm font-black">Business purchase?</p>
             <p className="mt-1 text-xs leading-5 text-slate-500">Request GST quote, contractor pricing, and installation support.</p>
-            <a href="/quote" className="mt-3 inline-flex text-sm font-bold text-ember">Request quote</a>
+            <Link href="/quote" className="mt-3 inline-flex text-sm font-bold text-ember">Request quote</Link>
           </div>
         </aside>
         <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">

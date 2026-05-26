@@ -3,6 +3,8 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 
+import { rateLimit, getClientIp } from "@/lib/utils/rate-limit";
+
 const emergencySchema = z.object({
   name: z.string().min(2),
   phone: z.string(),
@@ -12,6 +14,15 @@ const emergencySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const limiter = rateLimit(ip, 5, 60 * 1000); // Max 5 panic triggers per minute
+  if (!limiter.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Call local authorities directly." },
+      { status: 429, headers: { "X-RateLimit-Reset": String(limiter.reset) } }
+    );
+  }
+
   const session = await auth();
   const body = emergencySchema.parse(await request.json());
   const alert = await prisma.emergencyAlert.create({ data: { ...body, userId: session?.user?.id } });
